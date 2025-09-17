@@ -1,0 +1,69 @@
+my36colors <- c('#E5D2DD', '#53A85F', '#F1BB72', '#F3B1A0', '#D6E7A3', '#57C3F3', '#476D87',
+         '#E95C59', '#E59CC4', '#AB3282', '#23452F', '#BD956A', '#8C549C', '#585658',
+         '#9FA3A8', '#E0D4CA', '#5F3D69', '#C5DEBA', '#58A4C3', '#E4C755', '#F7F398',
+         '#AA9A59', '#E63863', '#E39A35', '#C1E6F3', '#6778AE', '#91D0BE', '#B53E2B',
+         '#712820', '#DCC1DD', '#CCE0F5', '#CCC9E6', '#625D9E', '#68A180', '#3A6963',
+         '#968175')
+cell_type_cols <-my36colors
+BM<-readRDS("BM_Tcell_integrated.rds")
+p=DimPlot(BM,reduction="umap",group.by="celltype",split.by="site",cols=cell_type_cols,raster=F)
+p=DimPlot(BM_3,reduction="umap",cols=cell_type_cols,raster=F)
+HSP_genes <- rownames(BM_3)[grep("^HSP",rownames(BM_3))]
+RLS_genes <- rownames(BM_3)[grep("^RP[SL]",rownames(BM_3))]
+mt.genes_1 <- rownames(BM_3)[grep("^MT-",rownames(BM_3))]
+mt.genes <- rownames(BM_3)[grep("^MT1",rownames(BM_3))]
+filter.gene<-unique(c(HSP_genes,mt.genes_1,cc.genes$g2m.genes,cc.genes$s.genes))
+BM_3 <-BM_3%>% ScaleData(vars.to.regress=filter.gene)   
+features<-VariableFeatures(BM_3)
+features<-setdiff(features,filter.gene)
+BM_3 <-BM_3%>%RunPCA(features=features)
+BM_3 <- FindNeighbors(BM_3, dims=1:20) %>% FindClusters(resolution=0.1)
+BM_3<-RunUMAP(BM_3,dims=1:20)
+##stromal cell 画圆圈图##
+p <- ggplot(ratio_1, aes(x = 0.7, y = value, fill = celltype)) +
+  geom_bar(width = 0.8, stat = "identity", color = "black", show.legend = FALSE) +
+  coord_polar(theta = "y", start = pi/2, direction = -1)  + scale_fill_manual(name = "cell types",  # 图例标题
+    values = c("CAF_C1_CLU" = '#E5D2DD',  # 颜色映射
+               "Pericytes" = "white",
+               "CAF_C2_COL11A1" = '#F1BB72',"CAF_C3_SFRP2" = '#F3B1A0',  # 颜色映射
+               "CAF_C4_POSTN" = '#D6E7A3',
+               "Osteoblasts" = "white","CAF_C5_VEGFA" = '#476D87',  # 颜色映射
+               "CAF_C6_MHC" = '#9FA3A8',
+               "CAF_C7_ISG15" = '#E0D4CA',  # 颜色映射
+               "MSC" = "white",
+               "CAF_C8_COL2A1" = '#E4C755')) +
+  
+  # 隐藏坐标轴和标签
+  theme_void() +
+  
+  # 调整图形范围
+  xlim(c(0, 2))
+
+cellratio$celltype<-rownames(cellratio)
+cellratio$celltype<-factor(cellratio$celltype,levels=c("CAF_C1_CLU","CAF_C2_COL11A1","CAF_C3_SFRP2","CAF_C4_POSTN","CAF_C5_VEGFA","CAF_C6_MHC","CAF_C7_ISG15","CAF_C8_COL2A1","Pericytes","MSC","Osteoblasts" ))
+cellratio$celltype<-factor(cellratio$celltype,levels=c("CAF_C1_CLU","CAF_C2_COL11A1","CAF_C3_SFRP2","CAF_C4_POSTN","CAF_C5_VEGFA","CAF_C6_MHC","CAF_C7_ISG15","CAF_C8_COL2A1","Other"))
+ratio<-reshape2::melt(cellratio,id.vars="celltype")
+ratio_1<-subset(ratio,subset=variable=="BRCA")
+ratio_1<-lapply(unique(ratio$variable),function(x) subset(ratio,subset=variable==x))
+plot <- lapply(ratio_1,function(x) ggplot(x, aes(x = 0.7, y = value, fill = celltype)) +
+  geom_bar(width = 0.8, stat = "identity", color = "black", show.legend = FALSE) +
+  coord_polar(theta = "y", start = pi/2, direction = -1)  + scale_fill_manual(name = "cell types",  # 图例标题
+    values = c("CAF_C1_CLU" = '#E5D2DD',  # 颜色映射
+               "Pericytes" = "white",
+               "CAF_C2_COL11A1" = '#F1BB72',"CAF_C3_SFRP2" = '#F3B1A0',  # 颜色映射
+               "CAF_C4_POSTN" = '#D6E7A3',
+               "Osteoblasts" = "white","CAF_C5_VEGFA" = '#476D87',  # 颜色映射
+               "CAF_C6_MHC" = '#9FA3A8',
+               "CAF_C7_ISG15" = '#E0D4CA',  # 颜色映射
+               "Other" = "white",
+               "CAF_C8_COL2A1" = '#E4C755')) +
+  
+  # 隐藏坐标轴和标签
+  theme_void() +
+  
+  # 调整图形范围
+  xlim(c(0, 2)))
+for (i in 1:length(unique(ratio$variable))){
+  temp<-plot[[i]]
+ggsave(paste0("BM_stromal_CAF_other_",unique(ratio$variable)[[i]],".pdf"),temp,width=5,height=5)
+}
